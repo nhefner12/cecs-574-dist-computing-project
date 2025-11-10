@@ -70,15 +70,17 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int = 32):
     partition = partition.train_test_split(test_size=0.2, seed=42)
     partition = partition.with_transform(apply_transforms)
 
-    subset_ratio = 0.25
+    # Balance between data usage and memory (0.5 = 50% of data)
+    subset_ratio = 0.3
     train_size = int(len(partition["train"]) * subset_ratio)
     test_size = int(len(partition["test"]) * subset_ratio)
     train_subset = partition["train"].select(range(train_size))
     test_subset = partition["test"].select(range(test_size))
 
+    # Reduce num_workers to save memory (0 = main process only)
     trainloader = DataLoader(
-        train_subset, batch_size=batch_size, shuffle=True, num_workers=4)
-    testloader = DataLoader(test_subset, batch_size=batch_size, num_workers=4)
+        train_subset, batch_size=batch_size, shuffle=True, num_workers=0)
+    testloader = DataLoader(test_subset, batch_size=batch_size, num_workers=0)
 
     return trainloader, testloader
 
@@ -92,21 +94,25 @@ def train(model, trainloader, epochs, lr, device):
     model.train()
 
     criterion = nn.CrossEntropyLoss().to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    # Use Adam with slightly lower learning rate for better convergence
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
 
     running_loss = 0.0
     num_batches = 0
-    for _ in range(epochs):
+    for epoch in range(epochs):
+        epoch_loss = 0.0
         for batch in trainloader:
             images = batch["img"].to(device)
             labels = batch["label"].to(device)
 
             optimizer.zero_grad()
-            loss = criterion(model(images), labels)
+            outputs = model(images)
+            loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
 
             running_loss += loss.item()
+            epoch_loss += loss.item()
             num_batches += 1
 
     avg_loss = running_loss / num_batches if num_batches > 0 else 0.0

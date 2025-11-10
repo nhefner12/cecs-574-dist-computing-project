@@ -1,4 +1,13 @@
 # =====================================================================
+# Configuration Structure:
+# - This file (pyproject.toml) is the active configuration
+# - pyproject.toml.baseline: Baseline experiment template
+# - pyproject.toml.hardware-aware: Hardware-aware experiment template
+# - *.fast, *.medium, *.slow: Speed variants (used by switch_config.py)
+#
+# Use 'python switch_config.py {fast|medium|slow}' to switch configurations
+# Use 'python run_comparison.py' to run both experiments
+#
 # For a full TOML configuration guide, check the Flower docs:
 # https://flower.ai/docs/framework/how-to-configure-pyproject-toml.html
 # =====================================================================
@@ -32,48 +41,30 @@ serverapp = "cecs_574_dist_computing_project.server_app:app"
 clientapp = "cecs_574_dist_computing_project.client_app:app"
 
 [tool.flwr.app.config]
-num-server-rounds = 3
-fraction-train = 0.2
-local-epochs = 1
-lr = 0.01
-hardware-aware = true
-num-supernodes = 10 
+num-server-rounds = 10  # Balanced for research: good results in reasonable time
+fraction-train = 0.3  # Reduced to run fewer clients in parallel (saves memory)
+local-epochs = 2  # Balanced: good learning without being too slow
+lr = 0.001
+hardware-aware = false  # <--- BASELINE: No hardware awareness
+experiment-name = "baseline"  # <--- For comparison
+num-supernodes = 10
 
-
-[tool.flwr.app.hardware-profiles]
-
-cpu-slow.local-epochs = 1
-cpu-slow.batch-size = 16
-cpu-slow.lr = 0.005
-cpu-slow.speed = 0.5       # <--- NEW: relative training speed slowdown
-cpu-slow.power = 12.0      # <--- NEW: energy cost per second
-cpu-slow.latency = 0.08    # <--- NEW: artificial slow network
-
-cpu-medium.local-epochs = 1
-cpu-medium.batch-size = 32
-cpu-medium.lr = 0.01
-cpu-medium.speed = 1.0
-cpu-medium.power = 10.0
-cpu-medium.latency = 0.02
-
-gpu.local-epochs = 2
-gpu.batch-size = 64
-gpu.lr = 0.02
-gpu.speed = 2.5            # <--- Faster training
-gpu.power = 35.0           # <--- Higher energy draw
-gpu.latency = 0.01
+# Baseline: All clients use uniform settings
+# (hardware profiles are ignored when hardware-aware = false)
 
 [tool.flwr.federations.local-simulation.node-config]
-0.hardware = "gpu"
+# In baseline mode, hardware assignments are ignored
+# All clients use the same uniform settings
+0.hardware = "cpu-medium"
 1.hardware = "cpu-medium"
 2.hardware = "cpu-medium"
-3.hardware = "cpu-slow"
-4.hardware = "cpu-slow"
-5.hardware = "cpu-slow"
-6.hardware = "cpu-slow"
+3.hardware = "cpu-medium"
+4.hardware = "cpu-medium"
+5.hardware = "cpu-medium"
+6.hardware = "cpu-medium"
 7.hardware = "cpu-medium"
-8.hardware = "gpu"
-9.hardware = "cpu-slow"
+8.hardware = "cpu-medium"
+9.hardware = "cpu-medium"
 
 # Default federation to use when running the app
 [tool.flwr.federations]
@@ -82,6 +73,7 @@ default = "local-simulation"
 # Local simulation federation with 10 virtual SuperNodes
 [tool.flwr.federations.local-simulation]
 options.num-supernodes = 10
+# Memory optimization: fraction-train=0.3 limits to ~3 clients in parallel
 
 # Remote federation example for use with SuperLink
 [tool.flwr.federations.remote-federation]

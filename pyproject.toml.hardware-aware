@@ -1,0 +1,63 @@
+# =====================================================================
+# Hardware-Aware Configuration - FAST (Quick Iteration)
+# Time: ~5-8 minutes per experiment
+# Accuracy: ~30-35%
+# =====================================================================
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cecs-574-dist-computing-project"
+version = "1.0.0"
+description = ""
+license = "Apache-2.0"
+dependencies = [
+    "flwr[simulation]>=1.23.0",
+    "flwr-datasets[vision]>=0.5.0",
+    "torch==2.7.1",
+    "torchvision==0.22.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.flwr.app]
+publisher = "nhefner"
+
+[tool.flwr.app.components]
+serverapp = "cecs_574_dist_computing_project.server_app:app"
+clientapp = "cecs_574_dist_computing_project.client_app:app"
+
+[tool.flwr.app.config]
+num-server-rounds = 5  # FAST: Fewer rounds for quick iteration
+fraction-train = 0.3
+local-epochs = 1  # Base epochs (overridden by hardware profiles)
+lr = 0.001  # Base LR (overridden by hardware profiles)
+hardware-aware = true
+experiment-name = "hardware-aware-fast"
+num-supernodes = 10
+
+# Note: Hardware profiles still use their epochs (GPU: 3, CPU: 2)
+# But with only 5 rounds, this is still fast
+# Also set subset_ratio = 0.3 in task.py for fast iteration
+
+[tool.flwr.federations.local-simulation.node-config]
+0.hardware = "gpu"
+1.hardware = "cpu-medium"
+2.hardware = "cpu-medium"
+3.hardware = "cpu-slow"
+4.hardware = "cpu-slow"
+5.hardware = "cpu-slow"
+6.hardware = "cpu-slow"
+7.hardware = "cpu-medium"
+8.hardware = "gpu"
+9.hardware = "cpu-medium"
+
+[tool.flwr.federations]
+default = "local-simulation"
+
+[tool.flwr.federations.local-simulation]
+options.num-supernodes = 10
+

@@ -1,0 +1,61 @@
+# =====================================================================
+# Baseline Configuration - SLOW (Thorough/Publication Quality)
+# Time: ~15-20 minutes per experiment
+# Accuracy: ~40-50%
+# =====================================================================
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cecs-574-dist-computing-project"
+version = "1.0.0"
+description = ""
+license = "Apache-2.0"
+dependencies = [
+    "flwr[simulation]>=1.23.0",
+    "flwr-datasets[vision]>=0.5.0",
+    "torch==2.7.1",
+    "torchvision==0.22.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.flwr.app]
+publisher = "nhefner"
+
+[tool.flwr.app.components]
+serverapp = "cecs_574_dist_computing_project.server_app:app"
+clientapp = "cecs_574_dist_computing_project.client_app:app"
+
+[tool.flwr.app.config]
+num-server-rounds = 10  # SLOW: More rounds for better results
+fraction-train = 0.3
+local-epochs = 2  # SLOW: Two epochs per round
+lr = 0.001
+hardware-aware = false
+experiment-name = "baseline-slow"
+num-supernodes = 10
+
+# Note: Also set subset_ratio = 0.5 in task.py for slow/thorough iteration
+
+[tool.flwr.federations.local-simulation.node-config]
+0.hardware = "cpu-medium"
+1.hardware = "cpu-medium"
+2.hardware = "cpu-medium"
+3.hardware = "cpu-medium"
+4.hardware = "cpu-medium"
+5.hardware = "cpu-medium"
+6.hardware = "cpu-medium"
+7.hardware = "cpu-medium"
+8.hardware = "cpu-medium"
+9.hardware = "cpu-medium"
+
+[tool.flwr.federations]
+default = "local-simulation"
+
+[tool.flwr.federations.local-simulation]
+options.num-supernodes = 10
+

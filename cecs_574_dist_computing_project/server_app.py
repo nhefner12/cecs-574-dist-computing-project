@@ -65,10 +65,16 @@ def main(grid: Grid, context: Context) -> None:
         num_rounds=num_rounds,
     )
 
+    # Get experiment name from config (for comparison)
+    experiment_name = context.run_config.get("experiment-name", "default")
+
     # Save final model weights
     final_state = result.arrays.to_torch_state_dict()
-    torch.save(final_state, "final_model.pt")
-    print("✅ Training complete — model saved to final_model.pt")
+    models_dir = Path("models")
+    models_dir.mkdir(exist_ok=True)
+    model_filename = models_dir / f"final_model_{experiment_name}.pt"
+    torch.save(final_state, model_filename)
+    print(f"✅ Training complete — model saved to {model_filename}")
 
     # Try to save metrics if available
     # Note: Metrics are collected from clients but may not be accessible via result.metrics
@@ -78,7 +84,7 @@ def main(grid: Grid, context: Context) -> None:
             metrics_output = result.metrics
             fit_history = metrics_output.get("fit", {})
 
-            output_file = Path("results/metrics.csv")
+            output_file = Path(f"results/metrics_{experiment_name}.csv")
             output_file.parent.mkdir(exist_ok=True)
 
             with output_file.open("w", newline="") as f:
