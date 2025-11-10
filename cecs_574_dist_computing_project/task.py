@@ -52,6 +52,13 @@ def apply_transforms(batch):
 def load_data(partition_id: int, num_partitions: int, batch_size: int = 32):
     """Load partition CIFAR10 data with speed-optimized settings."""
     global fds
+
+    # Validate partition_id is within valid range
+    if partition_id < 0 or partition_id >= num_partitions:
+        raise ValueError(
+            f"partition_id {partition_id} is out of range [0, {num_partitions-1}]"
+        )
+
     if fds is None:
         partitioner = IidPartitioner(num_partitions=num_partitions)
         fds = FederatedDataset(
@@ -69,7 +76,8 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int = 32):
     train_subset = partition["train"].select(range(train_size))
     test_subset = partition["test"].select(range(test_size))
 
-    trainloader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=4)
+    trainloader = DataLoader(
+        train_subset, batch_size=batch_size, shuffle=True, num_workers=4)
     testloader = DataLoader(test_subset, batch_size=batch_size, num_workers=4)
 
     return trainloader, testloader
@@ -87,6 +95,7 @@ def train(model, trainloader, epochs, lr, device):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     running_loss = 0.0
+    num_batches = 0
     for _ in range(epochs):
         for batch in trainloader:
             images = batch["img"].to(device)
@@ -98,8 +107,9 @@ def train(model, trainloader, epochs, lr, device):
             optimizer.step()
 
             running_loss += loss.item()
+            num_batches += 1
 
-    avg_loss = running_loss / len(trainloader)
+    avg_loss = running_loss / num_batches if num_batches > 0 else 0.0
     return avg_loss
 
 

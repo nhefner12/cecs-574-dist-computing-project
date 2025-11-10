@@ -1,9 +1,9 @@
 # cecs_574_dist_computing_project/hardware_profiles.py
 
 HARDWARE_PROFILES = {
-    "gpu":        {"speed": 2.5, "power": 120, "latency": 0.05},
-    "cpu-medium": {"speed": 1.0, "power": 60,  "latency": 0.15},
-    "cpu-slow":   {"speed": 0.6, "power": 25,  "latency": 0.30},
+    "gpu":        {"speed": 2.5, "power": 35.0, "latency": 0.01},
+    "cpu-medium": {"speed": 1.0, "power": 10.0, "latency": 0.02},
+    "cpu-slow":   {"speed": 0.5, "power": 12.0, "latency": 0.08},
 }
 
 

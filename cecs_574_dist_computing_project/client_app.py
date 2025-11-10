@@ -26,15 +26,19 @@ def train(msg: Message, context: Context):
     batch_size = context.run_config.get("batch-size", 32)
 
     # Load data
-    partition_id = int(context.node_id)
-    num_partitions = context.run_config["num-supernodes"]
-    trainloader, _ = load_data(partition_id, num_partitions, batch_size=batch_size)
+    # Get num-supernodes from federation config or use default
+    num_partitions = context.run_config.get("num-supernodes", 10)
+    # Ensure partition_id is within valid range [0, num_partitions-1]
+    partition_id = int(context.node_id) % num_partitions
+    trainloader, _ = load_data(
+        partition_id, num_partitions, batch_size=batch_size)
 
     # Start timing
     start = time.time()
 
     # Train
-    train_loss = train_fn(model, trainloader, epochs, lr * profile["speed"], device)
+    train_loss = train_fn(model, trainloader, epochs,
+                          lr * profile["speed"], device)
 
     # Apply compute delay to simulate slower hardware
     simulated_delay = profile["latency"] * len(trainloader)
@@ -64,8 +68,10 @@ def evaluate(msg: Message, context: Context):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-    partition_id = int(context.node_id)
-    num_partitions = context.run_config["num-supernodes"]
+    # Get num-supernodes from federation config or use default
+    num_partitions = context.run_config.get("num-supernodes", 10)
+    # Ensure partition_id is within valid range [0, num_partitions-1]
+    partition_id = int(context.node_id) % num_partitions
     _, valloader = load_data(partition_id, num_partitions, batch_size=32)
 
     eval_loss, eval_acc = test_fn(model, valloader, device)

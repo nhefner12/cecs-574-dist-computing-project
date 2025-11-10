@@ -11,15 +11,33 @@ from pathlib import Path
 # Import the ResNet18-based model from task.py
 from cecs_574_dist_computing_project.task import Net
 
-# Create ServerApp
+
 app = ServerApp()
+
+
+def aggregate_fit_metrics(results):
+    """
+    Aggregate client-reported training metrics by averaging.
+    `results` is a list of (client_id, metrics_dict).
+    """
+    if not results:
+        return {}
+
+    aggregated = {}
+    metric_keys = results[0][1].keys()
+
+    for key in metric_keys:
+        values = [metrics[key] for _, metrics in results]
+        aggregated[key] = sum(values) / len(values)
+
+    return aggregated
 
 
 @app.main()
 def main(grid: Grid, context: Context) -> None:
     """Main entry point for the ServerApp."""
 
-    # These values come from pyproject.toml [tool.flwr.app.run]
+    # Run config values from pyproject.toml
     num_rounds: int = context.run_config["num-server-rounds"]
     local_lr: float = context.run_config["lr"]
     fraction_train: float = context.run_config["fraction-train"]
@@ -34,10 +52,12 @@ def main(grid: Grid, context: Context) -> None:
     global_model = Net()
     arrays = ArrayRecord(global_model.state_dict())
 
-    # Initialize FedAvg
-    strategy = FedAvg(fraction_train=fraction_train)
+    # Define strategy
+    strategy = FedAvg(
+        fraction_train=fraction_train,
+    )
 
-    # Execute federated training
+    # Run federated training
     result = strategy.start(
         grid=grid,
         initial_arrays=arrays,
@@ -45,21 +65,41 @@ def main(grid: Grid, context: Context) -> None:
         num_rounds=num_rounds,
     )
 
-    # Save trained model
-    print("\n✅ Training complete — saving final model to disk...")
+    # Save final model weights
     final_state = result.arrays.to_torch_state_dict()
     torch.save(final_state, "final_model.pt")
-    print("📦 Saved as final_model.pt")
+    print("✅ Training complete — model saved to final_model.pt")
 
-    output_file = Path("results/metrics.csv")
-    output_file.parent.mkdir(exist_ok=True)
+    # Try to save metrics if available
+    # Note: Metrics are collected from clients but may not be accessible via result.metrics
+    # in all Flower versions. The metrics are still being sent from clients.
+    try:
+        if hasattr(result, 'metrics'):
+            metrics_output = result.metrics
+            fit_history = metrics_output.get("fit", {})
 
-    with output_file.open("w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["round", "client_id", "train_time_sec", "energy_joules", "train_loss"])
+            output_file = Path("results/metrics.csv")
+            output_file.parent.mkdir(exist_ok=True)
 
-        for rnd, train_metrics in result.train_metrics.items():
-            for cid, metrics in train_metrics.items():
-                writer.writerow([rnd, cid, metrics.get("train_time_sec"), metrics.get("energy_joules"), metrics.get("train_loss")])
+            with output_file.open("w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(["round", "train_loss", "train_time_sec",
+                                "energy_joules", "num-examples"])
 
-    print(f"✅ Metrics saved to {output_file}")
+                for rnd, metrics_dict in fit_history.items():
+                    writer.writerow([
+                        rnd,
+                        metrics_dict.get("train_loss"),
+                        metrics_dict.get("train_time_sec"),
+                        metrics_dict.get("energy_joules"),
+                        metrics_dict.get("num-examples"),
+                    ])
+
+            print(f"📊 Metrics saved to {output_file}")
+        else:
+            print("ℹ️  Metrics collection: Metrics are sent from clients but not aggregated in this Flower version.")
+            print(
+                "   Client metrics (train_loss, train_time_sec, energy_joules) are still being collected.")
+    except Exception as e:
+        print(f"⚠️  Could not save metrics: {e}")
+        print("   Training completed successfully. Model saved to final_model.pt")
