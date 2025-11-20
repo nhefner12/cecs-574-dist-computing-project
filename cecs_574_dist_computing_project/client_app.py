@@ -36,11 +36,11 @@ def train(msg: Message, context: Context):
         # The server sends a base LR, but we override with hardware-specific LR
         lr = hw_lr
     else:
-        # Baseline: uniform settings for all clients
-        # No speed multiplier, uniform power, no latency
-        profile = {"speed": 1.0, "power": 20.0, "latency": 0.0}
+        # Baseline: uniform settings matching CPU-Medium profile for fair comparison
+        # CPU-Medium speed, power, and latency
+        profile = {"speed": 0.7, "power": 10.0, "latency": 0.02}  # CPU-Medium settings
         hw_type = "uniform"
-        batch_size = context.run_config.get("batch-size", 32)
+        batch_size = context.run_config.get("batch-size", 16)  # CPU-Medium default
         epochs = context.run_config["local-epochs"]
         lr = msg.content["config"]["lr"]
 
@@ -56,18 +56,31 @@ def train(msg: Message, context: Context):
     start = time.time()
 
     # Train with hardware-specific learning rate
-    # Note: We use the hardware-specific LR directly, not multiplied by speed
-    # Speed is already accounted for in the hardware profile LR settings
     train_loss = train_fn(model, trainloader, epochs, lr, device)
 
-    # Apply network latency simulation (only if hardware-aware)
-    # This simulates network communication delays, not compute delays
-    if hardware_aware:
-        network_latency = profile["latency"] * \
-            len(trainloader) * 0.1  # Reduced impact
-        time.sleep(network_latency)
+    # Measure actual training time (before slowdown delays)
+    actual_train_time = time.time() - start
+
+    # Apply speed-based slowdown (for both baseline and hardware-aware)
+    # GPU=1.0 means no delay, slower hardware gets delayed to simulate slower compute
+    # Baseline uses CPU-Medium speed (0.7x), hardware-aware uses profile-specific speed
+    speed_multiplier = profile["speed"]
+    if speed_multiplier < 1.0:
+        # Calculate additional sleep time to simulate slower hardware
+        # If speed=0.5, hardware is 2x slower, so add 1x the training time as sleep
+        # Formula: additional_time = actual_time * (1/speed - 1)
+        # Example: speed=0.4 → (1/0.4 - 1) = (2.5 - 1) = 1.5x additional time
+        # Example: speed=0.7 → (1/0.7 - 1) = (1.43 - 1) = 0.43x additional time
+        slowdown_delay = actual_train_time * (1.0 / speed_multiplier - 1.0)
+        time.sleep(slowdown_delay)
+    
+    # Apply network latency simulation (for both baseline and hardware-aware)
+    # Baseline uses CPU-Medium latency (0.02s), hardware-aware uses profile-specific latency
+    network_latency = profile["latency"] * len(trainloader) * 0.1
+    time.sleep(network_latency)
 
     # End timing + compute energy
+    # train_time now includes actual training + slowdown delays + network latency
     train_time = time.time() - start
     energy = train_time * profile["power"]  # Joules
 

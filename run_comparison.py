@@ -3,6 +3,12 @@
 Run comparison between baseline and hardware-aware federated learning.
 
 This script runs both experiments and saves results for comparison.
+
+Usage:
+    python run_comparison.py           # Use current config
+    python run_comparison.py fast      # Switch to fast config and run
+    python run_comparison.py medium    # Switch to medium config and run
+    python run_comparison.py slow      # Switch to slow config and run
 """
 
 import subprocess
@@ -10,6 +16,18 @@ import sys
 import shutil
 from pathlib import Path
 import time
+
+# Import switch_config functions
+try:
+    import switch_config as switch_config_module
+    switch_config_func = switch_config_module.switch_config
+    CONFIG_FILES = switch_config_module.CONFIG_FILES
+    get_estimated_time = switch_config_module.get_estimated_time
+except ImportError:
+    # Fallback if switch_config.py is not available
+    switch_config_func = None
+    CONFIG_FILES = {}
+    def get_estimated_time(x): return "unknown"
 
 
 def run_experiment(config_file, experiment_name, original_config_path=None):
@@ -58,9 +76,34 @@ def run_experiment(config_file, experiment_name, original_config_path=None):
 
 def main():
     """Run both baseline and hardware-aware experiments."""
+    # Parse speed argument if provided
+    speed = None
+    if len(sys.argv) > 1:
+        speed = sys.argv[1].lower()
+        if speed not in CONFIG_FILES:
+            print(f"❌ Invalid speed: {speed}")
+            print(f"   Valid options: {', '.join(CONFIG_FILES.keys())}")
+            print(f"\nUsage:")
+            print(f"   python run_comparison.py           # Use current config")
+            print(f"   python run_comparison.py fast      # Switch to fast and run")
+            print(f"   python run_comparison.py medium    # Switch to medium and run")
+            print(f"   python run_comparison.py slow      # Switch to slow and run")
+            sys.exit(1)
+
     print("="*60)
     print("Federated Learning Comparison: Baseline vs Hardware-Aware")
+    if speed:
+        print(f"Configuration: {speed.upper()}")
+        print(f"Estimated time: {get_estimated_time(speed)}")
     print("="*60)
+
+    # Switch configuration if speed is provided
+    if speed and switch_config_func:
+        print(f"\n🔄 Switching to {speed.upper()} configuration...")
+        if not switch_config_func(speed):
+            print("❌ Failed to switch configuration!")
+            sys.exit(1)
+        print()  # Add blank line after config switch
 
     # Ensure results directory exists
     results_dir = Path("results")
@@ -76,6 +119,9 @@ def main():
     else:
         print("⚠️  Warning: pyproject.toml not found!")
 
+    # Determine experiment name suffix
+    suffix = f"-{speed}" if speed else ""
+
     # Run baseline experiment
     baseline_config = Path("pyproject.toml.baseline")
     if not baseline_config.exists():
@@ -83,7 +129,7 @@ def main():
         sys.exit(1)
 
     baseline_success = run_experiment(
-        baseline_config, "Baseline", str(backup_config))
+        baseline_config, f"Baseline{suffix}", str(backup_config))
 
     # Run hardware-aware experiment
     hardware_config = Path("pyproject.toml.hardware-aware")
@@ -92,7 +138,7 @@ def main():
         sys.exit(1)
 
     hardware_aware_success = run_experiment(
-        hardware_config, "Hardware-Aware", str(backup_config))
+        hardware_config, f"Hardware-Aware{suffix}", str(backup_config))
 
     # Restore original config at the end
     if backup_config.exists():
@@ -109,10 +155,16 @@ def main():
     print(
         f"Hardware-Aware:  {'✅ Success' if hardware_aware_success else '❌ Failed'}")
     print(f"\nResults saved in:")
-    print(f"  - models/final_model_baseline.pt")
-    print(f"  - models/final_model_hardware-aware.pt")
-    print(f"  - results/metrics_baseline.csv (if available)")
-    print(f"  - results/metrics_hardware-aware.csv (if available)")
+    if speed:
+        print(f"  - models/final_model_baseline-{speed}.pt")
+        print(f"  - models/final_model_hardware-aware-{speed}.pt")
+        print(f"  - results/metrics_baseline-{speed}.csv (if available)")
+        print(f"  - results/metrics_hardware-aware-{speed}.csv (if available)")
+    else:
+        print(f"  - models/final_model_baseline.pt")
+        print(f"  - models/final_model_hardware-aware.pt")
+        print(f"  - results/metrics_baseline.csv (if available)")
+        print(f"  - results/metrics_hardware-aware.csv (if available)")
     print(f"\nRun 'python compare_results.py' to analyze the differences.")
 
 

@@ -2,7 +2,7 @@
 
 HARDWARE_PROFILES = {
     "gpu": {
-        "speed": 2.5,
+        "speed": 1.0,  # Baseline - no slowdown, runs at full speed
         "power": 35.0,
         "latency": 0.01,
         "local_epochs": 3,  # More epochs for powerful hardware
@@ -10,7 +10,7 @@ HARDWARE_PROFILES = {
         "lr": 0.002,        # Higher LR for faster convergence
     },
     "cpu-medium": {
-        "speed": 1.0,
+        "speed": 0.7,  # 70% of GPU speed - will be slowed via time.sleep
         "power": 10.0,
         "latency": 0.02,
         "local_epochs": 2,  # Balanced epochs
@@ -18,8 +18,8 @@ HARDWARE_PROFILES = {
         "lr": 0.001,        # Standard LR
     },
     "cpu-slow": {
-        "speed": 0.5,
-        "power": 12.0,
+        "speed": 0.4,  # 40% of GPU speed - will be slowed more via time.sleep
+        "power": 7.0,  # Low-power system (lower than CPU-Medium)
         "latency": 0.08,
         "local_epochs": 2,  # Same epochs but slower
         "batch_size": 8,    # Smaller batches to save memory

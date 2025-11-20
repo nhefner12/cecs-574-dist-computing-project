@@ -33,8 +33,9 @@ clientapp = "cecs_574_dist_computing_project.client_app:app"
 [tool.flwr.app.config]
 num-server-rounds = 10  # SLOW: More rounds for better results
 fraction-train = 0.3
-local-epochs = 2  # SLOW: Two epochs per round
-lr = 0.001
+local-epochs = 2  # CPU-Medium epochs
+batch-size = 16  # CPU-Medium batch size
+lr = 0.001  # CPU-Medium learning rate
 hardware-aware = false
 experiment-name = "baseline-slow"
 num-supernodes = 10
