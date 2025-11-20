@@ -71,7 +71,7 @@ def load_data(partition_id: int, num_partitions: int, batch_size: int = 32):
     partition = partition.with_transform(apply_transforms)
 
     # Balance between data usage and memory (0.5 = 50% of data)
-    subset_ratio = 0.3
+    subset_ratio = 0.5
     train_size = int(len(partition["train"]) * subset_ratio)
     test_size = int(len(partition["test"]) * subset_ratio)
     train_subset = partition["train"].select(range(train_size))

@@ -398,36 +398,93 @@ def main(grid: Grid, context: Context) -> None:
                     for rnd in range(1, num_rounds + 1):
                         aggregated_metrics[rnd] = converted_metrics
 
-        # Flower exposes client-side metrics in dedicated attributes (e.g., train_metrics_clientapp)
-        # Use these as an additional fallback
-        if not aggregated_metrics and hasattr(result, "train_metrics_clientapp"):
-            clientapp_metrics = getattr(result, "train_metrics_clientapp")
-            if isinstance(clientapp_metrics, dict):
-                print(f"✅ Found train_metrics_clientapp for rounds: {sorted(clientapp_metrics.keys())}")
-                for rnd, metrics_dict in clientapp_metrics.items():
-                    if not isinstance(metrics_dict, dict):
-                        continue
-                    try:
-                        round_num = int(rnd)
-                    except (ValueError, TypeError):
-                        continue
-                    converted_metrics = {k: convert_metric_value(v) for k, v in metrics_dict.items()}
-                    aggregated_metrics[round_num] = converted_metrics
+        # Helper to normalize Flower's RecordDict/dict-like objects into a plain dict
+        def normalize_round_metrics(attr_value):
+            """Return a standard dict[int, dict[str, float]] from various Flower types."""
+            if attr_value is None:
+                return {}
+            # RecordDict / dataclass with to_dict
+            if hasattr(attr_value, "to_dict"):
+                try:
+                    attr_value = attr_value.to_dict()
+                except Exception:
+                    pass
+            # dict-like with items()
+            if hasattr(attr_value, "items"):
+                try:
+                    attr_value = dict(attr_value.items())
+                except Exception:
+                    pass
+            # If still not a dict, attempt to cast directly
+            if not isinstance(attr_value, dict):
+                try:
+                    attr_value = dict(attr_value)
+                except Exception:
+                    return {}
+            return attr_value
 
-        if not aggregated_metrics and hasattr(result, "evaluate_metrics_clientapp"):
-            eval_metrics = getattr(result, "evaluate_metrics_clientapp")
-            if isinstance(eval_metrics, dict):
-                print(f"ℹ️  Found evaluate_metrics_clientapp for rounds: {sorted(eval_metrics.keys())}")
-                # These are evaluation metrics; only store if nothing else is available
-                for rnd, metrics_dict in eval_metrics.items():
-                    if not isinstance(metrics_dict, dict):
-                        continue
-                    try:
-                        round_num = int(rnd)
-                    except (ValueError, TypeError):
-                        continue
-                    converted_metrics = {k: convert_metric_value(v) for k, v in metrics_dict.items()}
+        train_metrics_cache = None
+
+        # Flower exposes client-side metrics in dedicated attributes (train_metrics_clientapp, evaluate_metrics_clientapp)
+        # Use these to populate aggregated_metrics if available
+        for attr_name, is_train in [
+            ("train_metrics_clientapp", True),
+            ("evaluate_metrics_clientapp", False),
+        ]:
+            attr_value = getattr(result, attr_name, None)
+            if attr_value is None:
+                continue
+
+            round_metrics_dict = normalize_round_metrics(attr_value)
+            if not round_metrics_dict:
+                continue
+
+            label = "train" if is_train else "eval"
+            print(f"✅ Found {attr_name} for rounds: {sorted(round_metrics_dict.keys())}")
+
+            # Build a temporary dict so we can replace the whole structure in one go
+            normalized_rounds = {}
+            for rnd, metrics_dict in round_metrics_dict.items():
+                if not isinstance(metrics_dict, dict):
+                    if hasattr(metrics_dict, "to_dict"):
+                        try:
+                            metrics_dict = metrics_dict.to_dict()
+                        except Exception:
+                            metrics_dict = {}
+                    elif hasattr(metrics_dict, "items"):
+                        try:
+                            metrics_dict = dict(metrics_dict.items())
+                        except Exception:
+                            metrics_dict = {}
+                    else:
+                        metrics_dict = {}
+                if not metrics_dict:
+                    continue
+                try:
+                    round_num = int(rnd)
+                except (ValueError, TypeError):
+                    continue
+
+                converted_metrics = {k: convert_metric_value(v) for k, v in metrics_dict.items()}
+                normalized_rounds[round_num] = converted_metrics
+
+            if not normalized_rounds:
+                continue
+
+            if is_train:
+                train_metrics_cache = normalized_rounds
+                # Replace aggregated_metrics with the authoritative train metrics.
+                # We only want data from the train metrics source for the CSV.
+                aggregated_metrics = normalized_rounds
+            else:
+                for round_num, converted_metrics in normalized_rounds.items():
                     aggregated_metrics.setdefault(round_num, converted_metrics)
+
+        # Fallback: if for some reason aggregated_metrics is still empty but we captured train metrics
+        if not aggregated_metrics and train_metrics_cache:
+            aggregated_metrics = train_metrics_cache
+
+        print(f"🔍 Debug: aggregated_metrics keys before saving: {sorted(aggregated_metrics.keys()) if aggregated_metrics else 'EMPTY'}")
 
         # Save aggregated metrics
         if aggregated_metrics:
