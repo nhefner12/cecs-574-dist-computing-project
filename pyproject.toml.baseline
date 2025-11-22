@@ -1,7 +1,7 @@
 # =====================================================================
-# Baseline Configuration - FAST (Quick Iteration)
-# Time: ~5-8 minutes per experiment
-# Accuracy: ~30-35%
+# Baseline Configuration - SLOW (Thorough/Publication Quality)
+# Time: ~15-20 minutes per experiment
+# Accuracy: ~40-50%
 # =====================================================================
 
 [build-system]
@@ -31,32 +31,28 @@ serverapp = "cecs_574_dist_computing_project.server_app:app"
 clientapp = "cecs_574_dist_computing_project.client_app:app"
 
 [tool.flwr.app.config]
-num-server-rounds = 5  # FAST: Fewer rounds for quick iteration
-fraction-train = 0.3
-local-epochs = 1  # FAST: Single epoch per round (CPU-Medium uses 2, but we use 1 for speed)
-batch-size = 16  # CPU-Medium batch size for fair comparison
-lr = 0.001  # CPU-Medium learning rate
+# FL Parameters (hardware-specific parameters are defined in hardware_profiles.py)
+num-server-rounds = 10  # SLOW: More rounds for better results
+fraction-train = 1.0  # Use 100% to ensure all 5 clients are selected (deterministic)
+num-supernodes = 5  # 5 clients for slow experiment
 hardware-aware = false
-experiment-name = "baseline-fast"
-num-supernodes = 10
+experiment-name = "baseline-slow"
+# Note: Baseline uses CPU-medium profile settings uniformly (epochs=2, batch=16, lr=0.001)
 
-# Note: Also set subset_ratio = 0.3 in task.py for fast iteration
+# Note: Also set subset_ratio = 0.5 in task.py for slow/thorough iteration
 
 [tool.flwr.federations.local-simulation.node-config]
-0.hardware = "cpu-medium"
+# Use 5 clients with diverse hardware for fair comparison
+# Baseline uses uniform CPU-medium settings for all, but hardware types are tracked
+0.hardware = "gpu"
 1.hardware = "cpu-medium"
 2.hardware = "cpu-medium"
-3.hardware = "cpu-medium"
-4.hardware = "cpu-medium"
-5.hardware = "cpu-medium"
-6.hardware = "cpu-medium"
-7.hardware = "cpu-medium"
-8.hardware = "cpu-medium"
-9.hardware = "cpu-medium"
+3.hardware = "cpu-slow"
+4.hardware = "cpu-slow"
 
 [tool.flwr.federations]
 default = "local-simulation"
 
 [tool.flwr.federations.local-simulation]
-options.num-supernodes = 10
+options.num-supernodes = 5
 

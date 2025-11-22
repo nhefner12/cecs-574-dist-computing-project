@@ -31,31 +31,28 @@ serverapp = "cecs_574_dist_computing_project.server_app:app"
 clientapp = "cecs_574_dist_computing_project.client_app:app"
 
 [tool.flwr.app.config]
+# FL Parameters (hardware-specific parameters are defined in hardware_profiles.py)
 num-server-rounds = 10  # SLOW: More rounds for better results
-fraction-train = 0.3
-local-epochs = 2  # Base epochs (overridden by hardware profiles)
-lr = 0.001  # Base LR (overridden by hardware profiles)
+fraction-train = 1.0  # Use 100% to ensure all 5 clients are selected (deterministic)
+num-supernodes = 5  # 5 clients for slow experiment
 hardware-aware = true
 experiment-name = "hardware-aware-slow"
-num-supernodes = 10
+# Note: Hardware profiles define epochs, batch_size, lr per hardware type (GPU: 3 epochs/32 batch/0.002 lr, CPU-medium: 2/16/0.001, CPU-slow: 1/8/0.0005) 
 
 # Note: Also set subset_ratio = 0.5 in task.py for slow/thorough iteration
 
 [tool.flwr.federations.local-simulation.node-config]
+# Use 5 clients with diverse hardware for fair comparison
+# Hardware-aware uses profile-specific settings for each type
 0.hardware = "gpu"
 1.hardware = "cpu-medium"
 2.hardware = "cpu-medium"
 3.hardware = "cpu-slow"
 4.hardware = "cpu-slow"
-5.hardware = "cpu-slow"
-6.hardware = "cpu-slow"
-7.hardware = "cpu-medium"
-8.hardware = "gpu"
-9.hardware = "cpu-medium"
 
 [tool.flwr.federations]
 default = "local-simulation"
 
 [tool.flwr.federations.local-simulation]
-options.num-supernodes = 10
+options.num-supernodes = 5
 

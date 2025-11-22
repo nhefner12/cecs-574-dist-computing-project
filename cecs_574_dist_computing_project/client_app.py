@@ -6,7 +6,7 @@ from flwr.app import ArrayRecord, Context, Message, MetricRecord, RecordDict
 from flwr.clientapp import ClientApp
 
 from cecs_574_dist_computing_project.task import Net, load_data, train as train_fn, test as test_fn
-from cecs_574_dist_computing_project.hardware_profiles import get_profile, get_hardware_type
+from cecs_574_dist_computing_project.hardware_profiles import get_profile, get_hardware_type, HARDWARE_PROFILES
 
 app = ClientApp()
 
@@ -36,13 +36,25 @@ def train(msg: Message, context: Context):
         # The server sends a base LR, but we override with hardware-specific LR
         lr = hw_lr
     else:
-        # Baseline: uniform settings matching CPU-Medium profile for fair comparison
-        # CPU-Medium speed, power, and latency
-        profile = {"speed": 0.7, "power": 10.0, "latency": 0.02}  # CPU-Medium settings
-        hw_type = "uniform"
-        batch_size = context.run_config.get("batch-size", 16)  # CPU-Medium default
-        epochs = context.run_config["local-epochs"]
-        lr = msg.content["config"]["lr"]
+        # Baseline: uniform training parameters (epochs, batch, lr) but hardware-specific speed/power/latency
+        # Get the actual hardware profile for this client (for speed, power, latency)
+        actual_profile = get_profile(context)  # Get profile based on actual hardware type
+        hw_type = get_hardware_type(context)
+        
+        # Use actual hardware's speed, power, and latency (to simulate hardware diversity)
+        profile = {
+            "speed": actual_profile["speed"],      # Use actual hardware speed (GPU=1.0, CPU-medium=0.7, CPU-slow=0.4)
+            "power": actual_profile["power"],      # Use actual hardware power (GPU=35W, CPU-medium=10W, CPU-slow=7W)
+            "latency": actual_profile["latency"]   # Use actual hardware latency (GPU=0.01s, CPU-medium=0.02s, CPU-slow=0.08s)
+        }
+        
+        # But use uniform training parameters (CPU-medium settings) for all clients
+        cpu_medium_profile = HARDWARE_PROFILES["cpu-medium"]
+        batch_size = cpu_medium_profile["batch_size"]  # 16 (uniform)
+        epochs = cpu_medium_profile["local_epochs"]    # 2 (uniform)
+        lr = cpu_medium_profile["lr"]                  # 0.001 (uniform)
+        
+        hw_type = "uniform"  # Mark as uniform for tracking purposes (training params are uniform)
 
     # Load data
     # Get num-supernodes from federation config or use default
@@ -92,6 +104,14 @@ def train(msg: Message, context: Context):
     hw_type_map = {"gpu": 0, "cpu-medium": 1, "cpu-slow": 2, "uniform": 3}
     hw_type_encoded = hw_type_map.get(hw_type, 3)
 
+    # Get node_id for tracking which client this is
+    node_id = str(context.node_id)
+    
+    # Calculate config index (0-9) from node_id
+    # This allows the server to look up the hardware profile directly
+    num_supernodes = context.run_config.get("num-supernodes", 10)
+    config_index = int(context.node_id) % num_supernodes
+    
     metrics = {
         "train_loss": train_loss,
         "train_time_sec": train_time,
@@ -101,7 +121,12 @@ def train(msg: Message, context: Context):
         "batch_size": float(batch_size),   # Ensure numeric type
         "epochs": float(epochs),           # Ensure numeric type
         "learning_rate": float(lr),        # Ensure numeric type
+        "node_id": float(int(node_id)),    # Add node_id as numeric for tracking
+        "config_index": float(config_index),  # Add config_index (0-9) for hardware lookup
     }
+    
+    # Log which hardware profile this client is using
+    print(f"📱 Client {node_id} (hardware: {hw_type}) reporting metrics: train_loss={train_loss:.4f}, train_time={train_time:.2f}s", flush=True)
     content = RecordDict({"arrays": arrays, "metrics": MetricRecord(metrics)})
     return Message(content=content, reply_to=msg)
 

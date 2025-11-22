@@ -1,0 +1,22 @@
+{
+  "num_nodes": 4,
+  "nodes": [
+    {
+      "node_id": 0,
+      "hardware_profile": "gpu"
+    },
+    {
+      "node_id": 1,
+      "hardware_profile": "cpu-medium"
+    },
+    {
+      "node_id": 2,
+      "hardware_profile": "cpu-slow"
+    },
+    {
+      "node_id": 3,
+      "hardware_profile": "cpu-slow"
+    }
+  ]
+}
+

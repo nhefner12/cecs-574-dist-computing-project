@@ -1,7 +1,7 @@
 # =====================================================================
-# Baseline Configuration - FAST (Quick Iteration)
-# Time: ~5-8 minutes per experiment
-# Accuracy: ~30-35%
+# Hardware-Aware Configuration - SLOW (Thorough/Publication Quality)
+# Time: ~15-20 minutes per experiment
+# Accuracy: ~40-50%
 # =====================================================================
 
 [build-system]
@@ -31,27 +31,26 @@ serverapp = "cecs_574_dist_computing_project.server_app:app"
 clientapp = "cecs_574_dist_computing_project.client_app:app"
 
 [tool.flwr.app.config]
-num-server-rounds = 5  # FAST: Fewer rounds for quick iteration
+num-server-rounds = 10  # SLOW: More rounds for better results
 fraction-train = 0.3
-local-epochs = 1  # FAST: Single epoch per round (CPU-Medium uses 2, but we use 1 for speed)
-batch-size = 16  # CPU-Medium batch size for fair comparison
-lr = 0.001  # CPU-Medium learning rate
-hardware-aware = false
-experiment-name = "baseline-fast"
+local-epochs = 2  # Base epochs (overridden by hardware profiles)
+lr = 0.001  # Base LR (overridden by hardware profiles)
+hardware-aware = true
+experiment-name = "hardware-aware-slow"
 num-supernodes = 10
 
-# Note: Also set subset_ratio = 0.3 in task.py for fast iteration
+# Note: Also set subset_ratio = 0.5 in task.py for slow/thorough iteration
 
 [tool.flwr.federations.local-simulation.node-config]
-0.hardware = "cpu-medium"
+0.hardware = "gpu"
 1.hardware = "cpu-medium"
 2.hardware = "cpu-medium"
-3.hardware = "cpu-medium"
-4.hardware = "cpu-medium"
-5.hardware = "cpu-medium"
-6.hardware = "cpu-medium"
+3.hardware = "cpu-slow"
+4.hardware = "cpu-slow"
+5.hardware = "cpu-slow"
+6.hardware = "cpu-slow"
 7.hardware = "cpu-medium"
-8.hardware = "cpu-medium"
+8.hardware = "gpu"
 9.hardware = "cpu-medium"
 
 [tool.flwr.federations]
